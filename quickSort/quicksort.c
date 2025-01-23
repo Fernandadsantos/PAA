@@ -4,14 +4,22 @@
 #include <string.h>
 #include <math.h>
 
-void trocar(int *V1, int *V2)
+typedef struct Rates
+{
+    int numElem;
+    int ordem[6];
+} Rates;
+
+void replace(int *V1, int *V2, int *steps)
 {
     int aux = *V1;
     *V1 = *V2;
     *V2 = aux;
+    *steps += 1;
+    printf("trocar: %d \n", *steps);
 }
 
-int hoare(int *V, int i, int j)
+int hoare(int *V, int i, int j, int *steps)
 {
     // Declaração do pivô e índices
     int P = V[i], x = i - 1, y = j + 1;
@@ -24,7 +32,7 @@ int hoare(int *V, int i, int j)
             ;
         if (x < y)
         {
-            trocar(&V[x], &V[y]);
+            replace(&V[x], &V[y], &steps);
         }
 
         else
@@ -32,7 +40,7 @@ int hoare(int *V, int i, int j)
     }
 }
 
-int lomuto(int *V, int i, int j)
+int lomuto(int *V, int i, int j, int *steps)
 {
     int P = V[j], x = i - 1, y = i;
 
@@ -40,11 +48,11 @@ int lomuto(int *V, int i, int j)
     {
         if (V[y] <= P)
         {
-            trocar(&V[++x], &V[y]);
+            replace(&V[++x], &V[y], &steps);
         }
     }
 
-    trocar(&V[++x], &V[j]);
+    replace(&V[++x], &V[j], &steps);
     return x;
 }
 
@@ -64,7 +72,7 @@ int calc_median(int *V, int i, int j)
         return v3;
 }
 
-int hoare_median(int *V, int i, int j)
+int hoare_median(int *V, int i, int j, int *steps)
 {
     int P = calc_median(V, i, j);
 
@@ -77,7 +85,7 @@ int hoare_median(int *V, int i, int j)
             break;
         }
     }
-    trocar(&V[pivot_index], &V[i]);
+    replace(&V[pivot_index], &V[i], &steps);
 
     int x = i - 1;
     int y = j + 1;
@@ -97,11 +105,11 @@ int hoare_median(int *V, int i, int j)
         if (x >= y)
             return y;
 
-        trocar(&V[x], &V[y]);
+        replace(&V[x], &V[y], &steps);
     }
 }
 
-int lomuto_median(int *V, int i, int j)
+int lomuto_median(int *V, int i, int j, int *steps)
 {
     int P = calc_median(V, i, j);
 
@@ -114,7 +122,7 @@ int lomuto_median(int *V, int i, int j)
             break;
         }
     }
-    trocar(&V[pivot_index], &V[j]);
+    replace(&V[pivot_index], &V[j], &steps);
 
     int x = i - 1;
 
@@ -123,71 +131,97 @@ int lomuto_median(int *V, int i, int j)
         if (V[y] <= P)
         {
             x++;
-            trocar(&V[x], &V[y]);
+            replace(&V[x], &V[y], &steps);
         }
     }
 
-    trocar(&V[x + 1], &V[j]);
+    replace(&V[x + 1], &V[j], &steps);
 
     return x + 1;
 }
 
-int rands(int *V, int i, int j, int type)
+int rands(int *V, int i, int j, int type, int *steps)
 {
     // rand_hoare
     if (type == 1)
     {
         // Troca do pivô por aleatório
-        printf("rand: %d\n", V[i + (abs(V[i]) % (j + 1))]);
-        trocar(&V[i], &V[i + (abs(V[i]) % (j + 1))]);
+        replace(&V[i], &V[i + (abs(V[i]) % (j + 1))], &steps);
         // Chamada do particionamento
-        return hoare(V, i, j);
+        return hoare(V, i, j, &steps);
     }
     // rand_lomuto
     else
     {
         // Troca do pivô por aleatório
-        printf("rand: %d\n", V[i + (abs(V[i]) % (j + 1))]);
-        trocar(&V[j], &V[i + (abs(V[i]) % (j + 1))]);
+        replace(&V[j], &V[i + (abs(V[i]) % (j + 1))], &steps);
         // Chamada do particionamento
-        return lomuto(V, i, j);
+        return lomuto(V, i, j, &steps);
     }
 }
 
-void quicksort(int *V, int i, int j, int type, int type_rand)
+void quicksort(int *V, int i, int j, int type, int type_rand, int *steps)
 {
+
+    steps += 1;
+    printf("quick: %d \n", *steps);
     if (i < j)
     {
         int p = 0;
 
         if (type == 0)
         {
-            p = hoare(V, i, j);
-            quicksort(V, i, p, type, type_rand);
+            p = hoare(V, i, j, steps);
+            quicksort(V, i, p, type, type_rand, steps);
         }
         else if (type == 1)
         {
-            p = lomuto(V, i, j);
-            quicksort(V, i, p - 1, type, type_rand);
+            p = lomuto(V, i, j, steps);
+            quicksort(V, i, p - 1, type, type_rand, steps);
         }
         else if (type == 2)
         {
-            p = rands(V, i, j, type_rand);
-            quicksort(V, i, p - 1, type, type_rand);
+            p = rands(V, i, j, type_rand, steps);
+            quicksort(V, i, p - 1, type, type_rand, steps);
         }
         else if (type == 3)
         {
-            p = lomuto_median(V, i, j);
-            quicksort(V, i, p - 1, type, type_rand);
+            p = lomuto_median(V, i, j, steps);
+            quicksort(V, i, p - 1, type, type_rand, steps);
         }
         else
         {
-            p = hoare_median(V, i, j);
-            quicksort(V, i, p, type, type_rand);
+            p = hoare_median(V, i, j, steps);
+            quicksort(V, i, p, type, type_rand, steps);
         }
 
-        quicksort(V, p + 1, j, type, type_rand);
+        quicksort(V, p + 1, j, type, type_rand, steps);
     }
+}
+
+void print(int numV, int numElements)
+{
+    for (int i = 0; i < numV; i++)
+    {
+        printf("%d:N(%d),", i, numElements);
+
+        printf("\n");
+    }
+}
+
+int order(int *V, int ini, int numElements, int type, int type_rand)
+{
+    int aux[numElements];
+    int steps = 0;
+
+    for (int i = 0; i < numElements; i++)
+    {
+        aux[i] = V[i];
+    }
+
+    quicksort(aux, ini, numElements - 1, type, type_rand, &steps);
+
+    return steps;
 }
 
 int main(int argc, char *argv[])
@@ -200,24 +234,30 @@ int main(int argc, char *argv[])
     {
         int numV = 0, numElements = 0;
 
+        Rates rates;
         fscanf(input, "%d", &numV);
+
         for (int i = 0; i < numV; i++)
         {
             fscanf(input, "%d", &numElements);
             int *vector = malloc(numElements * sizeof(int));
+            rates.numElem = numElements;
 
             for (int j = 0; j < numElements; j++)
             {
                 fscanf(input, "%d", &vector[j]);
             }
 
-            quicksort(vector, 0, numElements - 1, 4, 0);
+            rates.ordem[0] = order(vector, 0, numElements, 0, 0); // hoare
+            rates.ordem[1] = order(vector, 0, numElements, 1, 0); // lomuto
+            rates.ordem[2] = order(vector, 0, numElements, 2, 0); // rand lomuto
+            rates.ordem[3] = order(vector, 0, numElements, 2, 1); // rand hoare
+            rates.ordem[4] = order(vector, 0, numElements, 3, 0); // lomuto median
+            rates.ordem[5] = order(vector, 0, numElements, 4, 0); // hoare median
 
-            for (int k = 0; k < numElements; k++)
-            {
-                printf("%d ", vector[k]);
-            }
-            printf("\n");
+            printf("%d:N(%d),HP(%d),LP(%d),LA(%d),HA(%d),LM(%d),HM(%d)\n", 0, numElements, rates.ordem[0], rates.ordem[1], rates.ordem[2], rates.ordem[3], rates.ordem[4], rates.ordem[5]);
+
+            // print(numV, rates.numElem);
         }
     }
 
