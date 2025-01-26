@@ -37,33 +37,27 @@ int right(int i)
 void heapify(Package V[], int T, int i)
 {
     int P = i, E = left(i), D = right(i);
-    printf("P:%d, E:%d, D:%d\n", V[P].index, V[E].index, V[D].index);
     if (E < T && V[E].index > V[P].index)
     {
-        printf("TROCA P:%d, E:%d\n", V[P].index, V[E].index);
         P = E;
-        printf("TROCADO P:%d, E:%d\n", V[P].index, V[E].index);
     }
 
     if (D < T && V[D].index > V[P].index)
     {
-        printf("TROCAP:%d, D:%d\n", V[P].index, V[D].index);
         P = D;
-        printf("TROCADO P:%d, D:%d\n", V[P].index, V[D].index);
     }
 
     if (P != i)
     {
         replaceNodes(V, P, i);
-        printf("trocou pai P:%d, I:%d \n", V[P].index, V[i].index);
         heapify(V, T, P);
     }
 }
 
 void build_heap(Package V[], int n)
 {
-    for (int i = n; i > 0; i--)
-        heapify(V, i, n);
+    for (int i = n; i >= 0; i--)
+        heapify(V, n, i);
 }
 
 void heapsort(Package V[], int n)
@@ -74,7 +68,7 @@ void heapsort(Package V[], int n)
     {
         replace(&V[0], &V[i]);
 
-        heapify(V, 0, i);
+        heapify(V, i, 0);
     }
 }
 
@@ -103,16 +97,6 @@ int main(int argc, char *argv[])
             }
         }
 
-        // for (int j = 0; j < numV; j++)
-        // {
-        //     printf("%d ", packages[j].index);
-        //     for (int k = 0; k < packages[j].numElem; k++)
-        //     {
-        //         printf("%02X ", packages[j].packageContent[k]);
-        //     }
-        //     printf("\n");
-        // }
-        printf("-----------------------------------\n");
         heapsort(packages, numV);
 
         for (int j = 0; j < numV; j++)
