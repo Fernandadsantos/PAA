@@ -60,13 +60,13 @@ int lomuto(int *V, int i, int j, int *steps)
 int calc_median(int *V, int i, int j)
 {
     int n = j - i + 1;
-    int v1 = V[i + n / 4];
-    int v2 = V[i + n / 2];
-    int v3 = V[i + 3 * n / 4];
+    int v1 = i + n / 4;
+    int v2 = i + n / 2;
+    int v3 = i + 3 * n / 4;
 
-    if ((v1 > v2) != (v1 > v3))
+    if ((V[v1] >= V[v2]) && (V[v1] <= V[v3]) || (V[v1] <= V[v2]) && (V[v1] >= V[v3]))
         return v1;
-    else if ((v2 > v1) != (v2 > v3))
+    else if ((V[v2] >= V[v1]) && (V[v2] <= V[v3]) || (V[v2] <= V[v1]) && (V[v2] >= V[v3]))
         return v2;
     else
         return v3;
@@ -75,69 +75,19 @@ int calc_median(int *V, int i, int j)
 int hoare_median(int *V, int i, int j, int *steps)
 {
     int P = calc_median(V, i, j);
+ 
+    replace(&V[P], &V[i], steps);
 
-    int pivot_index = i;
-    for (int k = i; k <= j; k++)
-    {
-        if (V[k] == P)
-        {
-            pivot_index = k;
-            break;
-        }
-    }
-    replace(&V[pivot_index], &V[i], steps);
-
-    int x = i - 1;
-    int y = j + 1;
-
-    while (1)
-    {
-        do
-        {
-            y--;
-        } while (V[y] > P);
-
-        do
-        {
-            x++;
-        } while (V[x] < P);
-
-        if (x >= y)
-            return y;
-
-        replace(&V[x], &V[y], steps);
-    }
+    return hoare(V, i, j, steps);
 }
 
 int lomuto_median(int *V, int i, int j, int *steps)
 {
     int P = calc_median(V, i, j);
+ 
+    replace(&V[P], &V[j], steps);
 
-    int pivot_index = i;
-    for (int k = i; k <= j; k++)
-    {
-        if (V[k] == P)
-        {
-            pivot_index = k;
-            break;
-        }
-    }
-    replace(&V[pivot_index], &V[j], steps);
-
-    int x = i - 1;
-
-    for (int y = i; y < j; y++)
-    {
-        if (V[y] <= P)
-        {
-            x++;
-            replace(&V[x], &V[y], steps);
-        }
-    }
-
-    replace(&V[x + 1], &V[j], steps);
-
-    return x + 1;
+    return lomuto(V, i, j, steps);
 }
 
 int rands(int *V, int i, int j, int type, int *steps)
@@ -214,22 +164,36 @@ int order(int *V, int ini, int numElements, int type, int type_rand)
     return steps;
 }
 
-int compareOrders(const void *a, const void *b)
+void sortElements(Order order[], int n)
 {
-    Order *orderA = (Order *)a;
-    Order *orderB = (Order *)b;
-    return orderA->num - orderB->num;
+    for (int i = 0; i < n; i++)
+    {
+        int smaller = i;
+
+        for (int j = i + 1; j < n; j++)
+        {
+            if (order[smaller].num > order[j].num || (order[smaller].num == order[j].num && order[smaller].index > order[j].index))
+            {
+                smaller = j;
+            }
+        }
+
+        Order aux = order[i];
+        order[i] = order[smaller];
+        order[smaller] = aux;
+    }
 }
-€ý,€ý,
-void print(int numElements, Order *order)
+
+void print(int numElements, Order *order, FILE *output)
 {
-    printf("N(%d)", numElements);
+
+    fprintf(output, "N(%d)", numElements);
 
     for (int i = 0; i < 6; i++)
     {
-        printf(",%s(%d)", order[i].name, order[i].num);
+        fprintf(output, ",%s(%d)", order[i].name, order[i].num);
     }
-    printf("\n");
+    fprintf(output, "\n");
 }
 
 int main(int argc, char *argv[])
@@ -247,7 +211,7 @@ int main(int argc, char *argv[])
 
         for (int i = 0; i < numV; i++)
         {
-            printf("%d:", i);
+            fprintf(output, "%d:", i);
             fscanf(input, "%d", &numElements);
             int vector[numElements];
             rates.numElem = numElements;
@@ -275,8 +239,9 @@ int main(int argc, char *argv[])
             rates.order[5].index = 5;
             rates.order[5].num = order(vector, 0, numElements, 2, 1);
             strcpy(rates.order[5].name, "HA");
-          
-            print(numElements, rates.order);
+
+            sortElements(rates.order, 6);
+            print(numElements, rates.order, output);
         }
     }
 
