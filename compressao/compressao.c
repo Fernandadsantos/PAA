@@ -4,62 +4,112 @@
 #include <string.h>
 #include <math.h>
 
+#define MAX_HEX 256
+
 typedef struct Data
 {
     int qtd;
-    int *data;
+    int *S;
 } Data;
 
-// typedef struct Node
-// {
-//     uint32_t F;
-//     int S;
-//     Node *R;
-//     Node *L;
-// } Node;
-
-typedef struct Queue
+typedef struct Node
 {
-    Data *Q;
-} Queue;
+    int freq;
+    Data data;
+    int S;
+    Node *R;
+    Node *L;
+} Node;
 
-// void insert(Queue *queue, int h, int i, Node *R, Node *L)
-// {
-// }
+typedef struct Heap
+{
+    int size;
+    int capacity;
+    Node *nodes;
+} Heap;
 
-// int size_queue(Queue *queue)
-// {
-//     // retorna o tamnho da fila
-//     return -1;
-// }
+int *get_freq(Data *data)
+{
+    int freq[MAX_HEX] = {0};
 
-// Queue *create_min_queue()
-// {
-//     // cria e retorna a fila de prioridade minima(ordem crescente de repetições)
-// }
+    // Conta a frequência de cada byte (caractere)
+    for (int i = 0; i < data->qtd; i++)
+    {
+        freq[data->S[i]] += 1;
+    }
 
-// Node *built_tree(uint32_t H[], uint32_t n)
-// {
-//     Queue *queue = create_min_queue();
+    return freq;
+}
 
-//     for (int i = 0; i < n; i++)
-//     {
-//         // insere os símbolos na fila
-//         if (H[i])
-//             insert(queue, H[i], i, NULL, NULL);
+Heap *build_heap(int capacity)
+{
+    Heap *heap = malloc(sizeof(heap));
 
-//         // combina os nós com menor frequência
-//         while (size_queue(queue) > 1)
-//         {
-//             Node *x = extract_min(queue);
-//             Node *y = extract_min(queue);
-//             insert(queue, x->F + y->F, "\0", x, y);
-//         }
-//     }
+    heap->capacity = capacity;
+    heap->size = 0;
+    heap->nodes = malloc(capacity * sizeof(Node));
 
-//     // retorna a raiz
-//     return extract_min(queue);
-// }
+    return heap;
+}
+
+void insert(Heap *heap, int freq, int i, Node *L, Node *R)
+{
+    Node newNode;
+    newNode.freq = freq;
+    newNode.L = L;
+    newNode.R = R;
+    newNode.S = i;
+
+    heap->nodes[heap->size++] = newNode;
+}
+
+Node *extract_min(Heap *heap)
+{
+    Node min = heap->nodes[0];
+    heap->nodes[0] = heap->nodes[heap->size - 1];
+    heap->size--;
+
+    return &min;
+}
+
+Node *build_tree(Data *data)
+{
+    int *freq = get_freq(data);
+
+    Heap *heap = build_heap(data->qtd);
+
+    for (int i = 0; i < MAX_HEX; i++)
+    {
+        if (freq[i])
+            insert(heap, freq[i], i, NULL, NULL);
+    }
+
+    while (heap->size > 1)
+    {
+        Node *x = extract_min(heap);
+        Node *y = extract_min(heap);
+        insert(heap, x->freq + y->freq, -1, x, y);
+    }
+
+    return extract_min(heap);
+}
+
+void compact(Data *data)
+{
+    int C[data->qtd];
+
+    for (int i = 0; i < data->qtd; i++)
+    {
+    }
+}
+
+void HUF(Data *data)
+{
+    Node *min = build_tree(data);
+    float rate = (min->S * 2);
+
+    printf("HUF(%d%%)=%d", (rate / (data->qtd * 2)) * 100, min->S);
+}
 
 void RLE(Data *data)
 {
@@ -68,15 +118,15 @@ void RLE(Data *data)
 
     for (int i = 0; i < data->qtd; i++)
     {
-        int current = data->data[i];
-        while (current == data->data[i + 1])
+        int current = data->S[i];
+        while (current == data->S[i + 1])
         {
             count += 1;
             i++;
         }
 
         V[index] = count;
-        V[index + 1] = data->data[i];
+        V[index + 1] = data->S[i];
         index += 2;
         count = 1;
     }
@@ -110,13 +160,13 @@ int main(int argc, char *argv[])
             Data currentData;
             fscanf(input, "%d", &currentData.qtd);
 
-            currentData.data = malloc(currentData.qtd * sizeof(int));
+            currentData.S = malloc(currentData.qtd * sizeof(int));
             for (int j = 0; j < currentData.qtd; j++)
             {
-                fscanf(input, "%x ", &currentData.data[j]);
+                fscanf(input, "%x ", &currentData.S[j]);
             }
 
-            RLE(&currentData);
+            // RLE(&currentData);
         }
     }
 
