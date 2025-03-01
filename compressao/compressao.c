@@ -33,6 +33,21 @@ typedef struct Heap
     Node **nodes;
 } Heap;
 
+typedef struct CompressHUF
+{
+    float porcent;
+    uint64_t compress;
+    int count;
+    int type;
+} CompressHUF;
+
+typedef struct CompressRLE
+{
+    int *V;
+    float porcent;
+    int index;
+} CompressRLE;
+
 int *get_freq(Data *data, int *freq)
 {
     for (int i = 0; i < data->qtd; i++)
@@ -144,71 +159,73 @@ Node *build_tree(Data *data)
     return extract_min(heap);
 }
 
-void create_table(Node *head, char *way, int deep, Table *tableHex)
+void create_table(Node *head, char *way, int deep, Table *tableHex, int *rate)
 {
     if (head == NULL)
         return;
 
     if (head->L == NULL && head->R == NULL)
     {
-        if (!deep)
-        {
-            int bits = head->freq;
-            int count = 0;
-            while (bits > 0)
-            {
-                bits -= 8;
-                count++;
-            }
-            int index = 0;
-            while (count > 0)
-            {
-                way[index] = '00';
-                index++;
-                count--;
-            }
-            way[index] = '\0';
-            tableHex[head->S].tagNum = strdup(way);
-            tableHex[head->S].tagHex = head->S;
-
-            return;
-        }
-
         way[deep] = '\0';
         tableHex[head->S].tagNum = strdup(way);
         tableHex[head->S].tagHex = head->S;
+
+        if (*rate < deep)
+        {
+            *rate = deep;
+        }
         return;
     }
 
     way[deep] = '0';
-    create_table(head->L, way, deep + 1, tableHex);
+    create_table(head->L, way, deep + 1, tableHex, rate);
 
     way[deep] = '1';
-    create_table(head->R, way, deep + 1, tableHex);
+    create_table(head->R, way, deep + 1, tableHex, rate);
 }
 
-void compact(Data *data, Table *table)
+void compact(Data *data, Table *table, int *rate, CompressHUF *compressHUF)
 {
-    int total_size = 0;
-
-    for (int i = 0; i < data->qtd; i++)
+    if (!(*rate))
     {
-        total_size += strlen(table[data->S[i]].tagNum);
+        int qtd = data->qtd;
+        int count = 0;
+        while (qtd > 0)
+        {
+            count++;
+            qtd -= 8;
+        }
+
+        float porcent = ((float)(count * 2) / (data->qtd * 2)) * 100;
+        compressHUF->porcent = porcent;
+        compressHUF->count = count;
+        compressHUF->type = 0;
     }
-
-    char *C = malloc((total_size + 1) * sizeof(char));
-    C[0] = '\0';
-
-    for (int i = 0; i < data->qtd; i++)
+    else
     {
-        strcat(C, table[data->S[i]].tagNum);
-    }
 
-    C[total_size] = '\0';
-    // printf("HUF(%.2f%%)=", ((float)(rate * 2) / (data->qtd * 2)) * 100);
-    int num = strtol(C, NULL, 2);
-    printf("%X\n", num);
-    free(C);
+        char *C = malloc((data->qtd * 8 + 1) * sizeof(char));
+        C[0] = '\0';
+
+        for (int i = 0; i < data->qtd; i++)
+        {
+            strcat(C, table[data->S[i]].tagNum);
+        }
+
+        while (strlen(C) % 8 != 0)
+        {
+            strcat(C, "0");
+        }
+
+        compressHUF->type = 1;
+        float porcent = ((float)strlen(C) / 4 / (data->qtd * 2)) * 100;
+        compressHUF->porcent = porcent;
+
+        uint64_t num = strtoull(C, NULL, 2);
+        compressHUF->compress = num;
+        compressHUF->count = (int)(strlen(C) / 4);
+        free(C);
+    }
 }
 
 void free_tree(Node *node)
@@ -220,15 +237,16 @@ void free_tree(Node *node)
     free(node);
 }
 
-void HUF(Data *data)
+CompressHUF *HUF(Data *data, FILE *output)
 {
     Node *root = build_tree(data);
     char way[MAX_HEX];
     Table *tableHex = calloc(MAX_HEX, sizeof(Table));
-    way[0] = '\0';
-    create_table(root, way, 0, tableHex);
+    int rate = 0;
+    create_table(root, way, 0, tableHex, &rate);
 
-    compact(data, tableHex);
+    CompressHUF *compressHUF = malloc(sizeof(CompressHUF));
+    compact(data, tableHex, &rate, compressHUF);
 
     for (int i = 0; i < MAX_HEX; i++)
     {
@@ -239,11 +257,75 @@ void HUF(Data *data)
     }
     free(tableHex);
     free_tree(root);
+
+    return compressHUF;
+}
+
+CompressRLE *RLE(Data *data)
+{
+    CompressRLE *compressRLE = malloc(sizeof(CompressRLE));
+    compressRLE->V = malloc((data->qtd * 2) * sizeof(int));
+    int count = 1, index = 0;
+
+    for (int i = 0; i < data->qtd; i++)
+    {
+        int current = data->S[i];
+        while (current == data->S[i + 1])
+        {
+            count += 1;
+            i++;
+        }
+
+        compressRLE->V[index] = count;
+        compressRLE->V[index + 1] = data->S[i];
+        index += 2;
+        count = 1;
+    }
+
+    float rate = (index * 2);
+    float porcent = (rate / (data->qtd * 2));
+    compressRLE->porcent = porcent * 100;
+    compressRLE->index = index;
+
+    return compressRLE;
+}
+
+void printHUF(CompressHUF *compressHUF, FILE *output)
+{
+    fprintf(output, "HUF(%.2f%%)=", compressHUF->porcent);
+    if (compressHUF->type)
+    {
+        fprintf(output, "%0*lX\n", compressHUF->count, compressHUF->compress);
+    }
+    else
+    {
+        for (int i = 0; i < compressHUF->count; i++)
+        {
+            fprintf(output, "00");
+        }
+        fprintf(output, "\n");
+    }
+}
+
+void printRLE(CompressRLE *compressRLE, FILE *output)
+{
+    fprintf(output, "RLE(%.2f%%)=", compressRLE->porcent);
+
+    for (int i = 0; i < compressRLE->index; i += 2)
+    {
+        fprintf(output, "%02X", compressRLE->V[i]);
+        fprintf(output, "%02X", compressRLE->V[i + 1]);
+    }
+    fprintf(output, "\n");
 }
 
 int main(int argc, char *argv[])
 {
-    FILE *input = fopen("input.txt", "r");
+    // FILE *input = fopen("input.txt", "r");
+    // FILE *output = fopen("output.txt", "w");
+    FILE *input = fopen(argv[1], "r");
+    FILE *output = fopen(argv[2], "w");
+
     if (input == NULL)
     {
         printf("Erro ao abrir input.txt\n");
@@ -255,6 +337,7 @@ int main(int argc, char *argv[])
 
     for (int i = 0; i < qtdSeq; i++)
     {
+
         Data currentData;
         fscanf(input, "%x", &currentData.qtd);
 
@@ -264,10 +347,31 @@ int main(int argc, char *argv[])
             fscanf(input, "%x", &currentData.S[j]);
         }
 
-        HUF(&currentData);
+        CompressHUF *compressHUF = HUF(&currentData, output);
+        CompressRLE *compressRLE = RLE(&currentData);
+
+        fprintf(output, "%d->", i);
+        if (compressHUF->porcent < compressRLE->porcent)
+        {
+
+            printHUF(compressHUF, output);
+        }
+        else if (compressHUF->porcent > compressRLE->porcent)
+        {
+            printRLE(compressRLE, output);
+        }
+        else
+        {
+            printHUF(compressHUF, output);
+            fprintf(output, "%d->", i);
+            printRLE(compressRLE, output);
+        }
         free(currentData.S);
+        free(compressHUF);
+        free(compressRLE);
     }
 
     fclose(input);
+    fclose(output);
     return 0;
 }
