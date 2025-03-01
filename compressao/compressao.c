@@ -12,76 +12,126 @@ typedef struct Data
     int *S;
 } Data;
 
+typedef struct Table
+{
+    char *tagNum;
+    int tagHex;
+} Table;
+
 typedef struct Node
 {
     int freq;
-    Data data;
     int S;
-    Node *R;
-    Node *L;
+    struct Node *R;
+    struct Node *L;
 } Node;
 
 typedef struct Heap
 {
     int size;
     int capacity;
-    Node *nodes;
+    Node **nodes;
 } Heap;
 
-int *get_freq(Data *data)
+int *get_freq(Data *data, int *freq)
 {
-    int freq[MAX_HEX] = {0};
-
-    // Conta a frequência de cada byte (caractere)
     for (int i = 0; i < data->qtd; i++)
     {
         freq[data->S[i]] += 1;
     }
-
     return freq;
 }
 
-Heap *build_heap(int capacity)
+Heap *build_heap(Data *data)
 {
-    Heap *heap = malloc(sizeof(heap));
-
-    heap->capacity = capacity;
+    Heap *heap = malloc(sizeof(Heap));
+    heap->capacity = data->qtd;
     heap->size = 0;
-    heap->nodes = malloc(capacity * sizeof(Node));
-
+    heap->nodes = malloc(data->qtd * sizeof(Node *));
     return heap;
 }
 
-void insert(Heap *heap, int freq, int i, Node *L, Node *R)
+void heapify_up(Heap *heap, int index)
 {
-    Node newNode;
-    newNode.freq = freq;
-    newNode.L = L;
-    newNode.R = R;
-    newNode.S = i;
+    if (index == 0)
+        return;
 
-    heap->nodes[heap->size++] = newNode;
+    int parent = (index - 1) / 2;
+
+    if (heap->nodes[parent]->freq > heap->nodes[index]->freq)
+    {
+        Node *temp = heap->nodes[parent];
+        heap->nodes[parent] = heap->nodes[index];
+        heap->nodes[index] = temp;
+        heapify_up(heap, parent);
+    }
+}
+
+void insert(Heap *heap, int histogram, int i, Node *L, Node *R)
+{
+    Node *newNode = malloc(sizeof(Node));
+    newNode->freq = histogram;
+    newNode->L = L;
+    newNode->R = R;
+    newNode->S = i;
+
+    heap->nodes[heap->size] = newNode;
+    heapify_up(heap, heap->size);
+    heap->size++;
+}
+
+void heapify_down(Heap *heap, int index)
+{
+    int left = 2 * index + 1;
+    int right = 2 * index + 2;
+    int smallest = index;
+
+    if (left < heap->size && heap->nodes[left]->freq < heap->nodes[smallest]->freq)
+    {
+        smallest = left;
+    }
+
+    if (right < heap->size && heap->nodes[right]->freq < heap->nodes[smallest]->freq)
+    {
+        smallest = right;
+    }
+
+    if (smallest != index)
+    {
+        Node *temp = heap->nodes[index];
+        heap->nodes[index] = heap->nodes[smallest];
+        heap->nodes[smallest] = temp;
+
+        heapify_down(heap, smallest);
+    }
 }
 
 Node *extract_min(Heap *heap)
 {
-    Node min = heap->nodes[0];
+    if (heap->size == 0)
+        return NULL;
+
+    Node *min = heap->nodes[0];
     heap->nodes[0] = heap->nodes[heap->size - 1];
     heap->size--;
 
-    return &min;
+    heapify_down(heap, 0);
+    return min;
 }
 
 Node *build_tree(Data *data)
 {
-    int *freq = get_freq(data);
+    int freq[MAX_HEX] = {0};
+    int *histogram = get_freq(data, freq);
 
-    Heap *heap = build_heap(data->qtd);
+    Heap *heap = build_heap(data);
 
     for (int i = 0; i < MAX_HEX; i++)
     {
-        if (freq[i])
-            insert(heap, freq[i], i, NULL, NULL);
+        if (histogram[i])
+        {
+            insert(heap, histogram[i], i, NULL, NULL);
+        }
     }
 
     while (heap->size > 1)
@@ -94,83 +144,130 @@ Node *build_tree(Data *data)
     return extract_min(heap);
 }
 
-void compact(Data *data)
+void create_table(Node *head, char *way, int deep, Table *tableHex)
 {
-    int C[data->qtd];
+    if (head == NULL)
+        return;
+
+    if (head->L == NULL && head->R == NULL)
+    {
+        if (!deep)
+        {
+            int bits = head->freq;
+            int count = 0;
+            while (bits > 0)
+            {
+                bits -= 8;
+                count++;
+            }
+            int index = 0;
+            while (count > 0)
+            {
+                way[index] = '00';
+                index++;
+                count--;
+            }
+            way[index] = '\0';
+            tableHex[head->S].tagNum = strdup(way);
+            tableHex[head->S].tagHex = head->S;
+
+            return;
+        }
+
+        way[deep] = '\0';
+        tableHex[head->S].tagNum = strdup(way);
+        tableHex[head->S].tagHex = head->S;
+        return;
+    }
+
+    way[deep] = '0';
+    create_table(head->L, way, deep + 1, tableHex);
+
+    way[deep] = '1';
+    create_table(head->R, way, deep + 1, tableHex);
+}
+
+void compact(Data *data, Table *table)
+{
+    int total_size = 0;
 
     for (int i = 0; i < data->qtd; i++)
     {
+        total_size += strlen(table[data->S[i]].tagNum);
     }
+
+    char *C = malloc((total_size + 1) * sizeof(char));
+    C[0] = '\0';
+
+    for (int i = 0; i < data->qtd; i++)
+    {
+        strcat(C, table[data->S[i]].tagNum);
+    }
+
+    C[total_size] = '\0';
+    // printf("HUF(%.2f%%)=", ((float)(rate * 2) / (data->qtd * 2)) * 100);
+    int num = strtol(C, NULL, 2);
+    printf("%X\n", num);
+    free(C);
+}
+
+void free_tree(Node *node)
+{
+    if (node == NULL)
+        return;
+    free_tree(node->L);
+    free_tree(node->R);
+    free(node);
 }
 
 void HUF(Data *data)
 {
-    Node *min = build_tree(data);
-    float rate = (min->S * 2);
+    Node *root = build_tree(data);
+    char way[MAX_HEX];
+    Table *tableHex = calloc(MAX_HEX, sizeof(Table));
+    way[0] = '\0';
+    create_table(root, way, 0, tableHex);
 
-    printf("HUF(%d%%)=%d", (rate / (data->qtd * 2)) * 100, min->S);
-}
+    compact(data, tableHex);
 
-void RLE(Data *data)
-{
-    int V[data->qtd * 2];
-    int count = 1, index = 0;
-
-    for (int i = 0; i < data->qtd; i++)
+    for (int i = 0; i < MAX_HEX; i++)
     {
-        int current = data->S[i];
-        while (current == data->S[i + 1])
+        if (tableHex[i].tagNum != NULL)
         {
-            count += 1;
-            i++;
+            free(tableHex[i].tagNum);
         }
-
-        V[index] = count;
-        V[index + 1] = data->S[i];
-        index += 2;
-        count = 1;
     }
-
-    float rate = (index * 2);
-
-    printf("RLE(%.2f%%)=", (rate / (data->qtd * 2)) * 100);
-
-    for (int i = 0; i < index; i += 2)
-    {
-        printf("%02X", V[i]);
-        printf("%02X", V[i + 1]);
-    }
-    printf("\n");
+    free(tableHex);
+    free_tree(root);
 }
 
 int main(int argc, char *argv[])
 {
     FILE *input = fopen("input.txt", "r");
-    FILE *output = fopen("output.txt", "w");
-    // FILE *input = fopen(argv[1], "r");
-    // FILE *output = fopen(argv[2], "w");
-    if (input != NULL)
+    if (input == NULL)
     {
-        int qtdSeq = 0;
-        fscanf(input, "%d", &qtdSeq);
+        printf("Erro ao abrir input.txt\n");
+        return 1;
+    }
 
-        for (int i = 0; i < qtdSeq; i++)
+    int qtdSeq;
+    fscanf(input, "%d", &qtdSeq);
+
+    for (int i = 0; i < qtdSeq; i++)
+    {
+        Data currentData;
+        fscanf(input, "%x", &currentData.qtd);
+
+        currentData.S = malloc(currentData.qtd * sizeof(int));
+        for (int j = 0; j < currentData.qtd; j++)
         {
-            printf("%d->", i);
-            Data currentData;
-            fscanf(input, "%d", &currentData.qtd);
-
-            currentData.S = malloc(currentData.qtd * sizeof(int));
-            for (int j = 0; j < currentData.qtd; j++)
-            {
-                fscanf(input, "%x ", &currentData.S[j]);
-            }
-
-            // RLE(&currentData);
+            fscanf(input, "%x", &currentData.S[j]);
         }
+
+        HUF(&currentData);
+        free(currentData.S);
     }
 
     fclose(input);
-    fclose(output);
     return 0;
 }
