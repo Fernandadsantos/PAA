@@ -4,79 +4,121 @@
 #include <string.h>
 #include <math.h>
 
-typedef struct Gene
+typedef struct Genes
 {
     char gene[1000];
-    int percent;
-} Gene;
+    int qtd;
+} Genes;
 
-typedef struct Illness
+typedef struct Disease
 {
-    char code[100];
+    char code[20];
     int qtdGenes;
-    Gene genes[10];
-} Illness;
+    Genes *genes;
+} Disease;
 
-void calc_table(long *K, char *subString)
+void calc_table(int *K, char *P)
 {
-    for (int i = 1, j = -1; i < strlen(subString); i++)
+    int p_size = strlen(P);
+    for (int i = 1, j = -1; i < p_size; i++)
     {
-        while (j >= 0 && subString[j + 1] != subString[i])
-        {
+        while (j >= 0 && P[j + 1] != P[i])
             j = K[j];
-        }
 
-        if (subString[j + 1] == subString[i])
-        {
+        if (P[j + 1] == P[i])
             j++;
-        }
 
         K[i] = j;
     }
 }
 
-void calc_table(long *K, char *subString)
+void insert(int *R, int m, int index)
 {
-    for (int i = 1, j = -1; i < strlen(subString); i++)
+    R[index] = m;
+}
+
+int overwrite_gene(char *str, int n, int *K)
+{
+    int len = strlen(str);
+    if (n >= len)
     {
-        while (j >= 0 && subString[j + 1] != subString[i])
-        {
-            j = K[j];
-        }
-
-        if (subString[j + 1] == subString[i])
-        {
-            j++;
-        }
-
-        K[i] = j;
+        str[0] = '\0';
+        return -1;
     }
+
+    memmove(str, str + n, len - n + 1);
+
+    return 1;
 }
 
-void inserir(int32_t *V, int32_t i, int32_t *d)
+void KMP(char *DNA, Disease *disease, int subSize)
 {
-    V[*d] = i;
-    (*d)++;
-}
 
-void KMP(int32_t *K, long *R, char *T, char *P)
-{
-    int n = strlen(T), m = strlen(P), d = 0;
-    calc_table(K, P);
-
-    for (int i = 0, j = -1; i < n; i++)
+    for (int d = 0; d < disease->qtdGenes; d++)
     {
-        while (j >= 0 && P[j + 1] != T[i])
-            j = K[j];
+        int m = strlen(DNA), n = strlen(disease->genes[d].gene), index = 0, totalV = 0, parcialV = 0;
+        int R[m];
+        int K[n];
+        memset(K, -1, sizeof(K));
+        calc_table(K, disease->genes[d].gene);
 
-        if (P[j + 1] == T[i])
-            j++;
-
-        if (j == m - 1)
+        for (int i = 0, j = -1; i < m; i++)
         {
-            inserir(R, i - m + 1, &d);
-            j = K[j];
+
+            while (j >= 0 && disease->genes[d].gene[j + 1] != DNA[i])
+            {
+                if (j >= subSize - 1)
+                {
+
+                    insert(R, i - n + 1, index);
+                    parcialV += j + 1;
+                    totalV = parcialV;
+                    disease->genes[d].qtd += totalV;
+                    parcialV = 0;
+                    int go = overwrite_gene(disease->genes[d].gene, j + 1, K);
+                    calc_table(K, disease->genes[d].gene);
+                    int size = strlen(disease->genes[d].gene);
+
+                    if (go == -1 || subSize > size)
+                    {
+
+                        j = -1;
+                        i = m;
+                        break;
+                    }
+                    j = -1;
+                }
+                else
+                {
+
+                    j = K[j];
+                }
+            }
+
+            if (j == n - 1)
+            {
+                break;
+            }
+
+            if (disease->genes[d].gene[j + 1] == DNA[i])
+            {
+                j++;
+            }
+
+            if (j == m - 1)
+            {
+                insert(R, i - m + 1, index);
+                parcialV += j + 1;
+                index++;
+                j = K[j];
+                i = m;
+                disease->genes[d].qtd = parcialV;
+            }
         }
+        parcialV = 0;
+
+        printf(" qtd: %d\n", disease->genes[d].qtd);
+        totalV = 0;
     }
 }
 
@@ -88,27 +130,27 @@ int main(int argc, char *argv[])
     // FILE *output = fopen(argv[2], "w");
     if (input != NULL)
     {
-        int subSize = 0, illnessNum = 0;
+        int subSize = 0, num_disease = 0;
         char DNA[35];
-        fscanf(input, "%d %s %d", &subSize, DNA, &illnessNum);
+        fscanf(input, "%d", &subSize);
+        fscanf(input, "%s", DNA);
+        fscanf(input, "%d", &num_disease);
 
-        Illness *illnesses = malloc(illnessNum * sizeof(Illness));
-
-        for (int i = 0; i < illnessNum; i++)
+        for (int i = 0; i < num_disease; i++)
         {
-            fscanf(input, "%s %d", illnesses[i].code, &illnesses[i].qtdGenes);
+            Disease disease;
 
-            for (int j = 0; j < illnesses[i].qtdGenes; j++)
+            fscanf(input, "%s %d", disease.code, &disease.qtdGenes);
+
+            disease.genes = malloc(disease.qtdGenes * sizeof(Genes));
+            for (int j = 0; j < disease.qtdGenes; j++)
             {
-                fscanf(input, "%s ", illnesses[i].genes[j].gene);
-
-                int32_t K[strlen(illnesses[i].genes[j].gene)];
-                int32_t R[strlen(DNA)];
-
-                KMP(&K, &R, DNA, illnesses[i].genes[j].gene);
+                fscanf(input, " %s", disease.genes[j].gene);
+                disease.genes[j].qtd = 0;
             }
+
+            KMP(DNA, &disease, subSize);
         }
-        free(illnesses);
     }
 
     fclose(input);
