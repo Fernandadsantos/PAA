@@ -173,7 +173,7 @@ int main(int argc, char *argv[])
     if (input != NULL)
     {
         int subSize = 0, num_disease = 0;
-        char DNA[35];
+        char DNA[1000];
         fscanf(input, "%d %s %d", &subSize, DNA, &num_disease);
 
         Disease *arrDisease = malloc(num_disease * sizeof(Disease));
