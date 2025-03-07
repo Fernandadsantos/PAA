@@ -162,6 +162,7 @@ Node *build_tree(Data *data)
         Node *x = extract_min(heap);
         Node *y = extract_min(heap);
         insert(heap, x->freq + y->freq, -1, x, y);
+        heapify_up(heap, 0);
     }
 
     return extract_min(heap);
@@ -350,7 +351,7 @@ int main(int argc, char *argv[])
         {
 
             Data currentData;
-            fscanf(input, "%x", &currentData.qtd);
+            fscanf(input, "%d", &currentData.qtd);
 
             currentData.S = malloc(currentData.qtd * sizeof(int));
             for (int j = 0; j < currentData.qtd; j++)
