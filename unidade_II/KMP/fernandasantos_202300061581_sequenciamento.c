@@ -1,12 +1,13 @@
+#include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <math.h>
+#include <time.h>
 
 typedef struct Genes
 {
-    char gene[1000];
+    char gene[1002];
     int qtdInit;
     int qtd;
     int porcent;
@@ -14,7 +15,8 @@ typedef struct Genes
 
 typedef struct Disease
 {
-    char code[20];
+    int index;
+    char code[30];
     int totalPorcent;
     int qtdGenes;
     Genes *genes;
@@ -40,7 +42,7 @@ void insert(int *R, int m, int index)
     R[index] = m;
 }
 
-int overwrite_gene(char *str, int n, int *K)
+int overwrite_gene(char *str, int n)
 {
     int len = strlen(str);
     if (n >= len)
@@ -78,7 +80,7 @@ void KMP(char *DNA, Disease *disease, int subSize)
                     totalV = parcialV;
                     disease->genes[d].qtd += totalV;
                     parcialV = 0;
-                    int go = overwrite_gene(disease->genes[d].gene, j + 1, K);
+                    int go = overwrite_gene(disease->genes[d].gene, j + 1);
                     calc_table(K, disease->genes[d].gene);
                     int size = strlen(disease->genes[d].gene);
 
@@ -118,7 +120,8 @@ void KMP(char *DNA, Disease *disease, int subSize)
             }
         }
         parcialV = 0;
-        disease->genes[d].porcent = (disease->genes[d].qtd * 100) / disease->genes[d].qtdInit;
+        disease->genes[d]
+            .porcent = (disease->genes[d].qtd * 100) / disease->genes[d].qtdInit;
 
         totalV = 0;
     }
@@ -139,7 +142,7 @@ int calc_percent(Disease *disease)
                 counter++;
         }
         float porcent = ((float)counter * 100) / disease->qtdGenes;
-        return (int)ceil(porcent) >= 90 ? 100 : (int)ceil(porcent);
+        return (int)round(porcent) >= 90 ? 100 : (int)(round)(porcent);
     }
 }
 
@@ -151,7 +154,7 @@ void sortElements(Disease *D, int n, FILE *output)
 
         for (int j = i + 1; j < n; j++)
         {
-            if (D[smaller].totalPorcent < D[j].totalPorcent)
+            if (D[smaller].totalPorcent < D[j].totalPorcent || (D[smaller].totalPorcent == D[j].totalPorcent && D[smaller].index > D[j].index))
             {
                 smaller = j;
             }
@@ -166,6 +169,7 @@ void sortElements(Disease *D, int n, FILE *output)
 
 int main(int argc, char *argv[])
 {
+    clock_t start = clock();
     // FILE *input = fopen("input.txt", "r");
     // FILE *output = fopen("output.txt", "w");
     FILE *input = fopen(argv[1], "r");
@@ -173,8 +177,10 @@ int main(int argc, char *argv[])
     if (input != NULL)
     {
         int subSize = 0, num_disease = 0;
-        char DNA[35];
-        fscanf(input, "%d %s %d", &subSize, DNA, &num_disease);
+        char DNA[40001];
+        fscanf(input, "%d", &subSize);
+        fscanf(input, "%s", DNA);
+        fscanf(input, "%d", &num_disease);
 
         Disease *arrDisease = malloc(num_disease * sizeof(Disease));
         for (int i = 0; i < num_disease; i++)
@@ -186,14 +192,19 @@ int main(int argc, char *argv[])
             disease.genes = malloc(disease.qtdGenes * sizeof(Genes));
             for (int j = 0; j < disease.qtdGenes; j++)
             {
-                fscanf(input, " %s", disease.genes[j].gene);
-                disease.genes[j].qtd = 0;
-                disease.genes[j].qtdInit = strlen(disease.genes[j].gene);
-                disease.genes[j].porcent = 0;
+                fscanf(input, "%s", disease.genes[j].gene);
+
+                if (strcmp(disease.genes[j].gene, " ") != 0)
+                {
+                    disease.genes[j].qtd = 0;
+                    disease.genes[j].qtdInit = strlen(disease.genes[j].gene);
+                    disease.genes[j].porcent = 0;
+                }
             }
 
             KMP(DNA, &disease, subSize);
             arrDisease[i].totalPorcent = calc_percent(&disease);
+            arrDisease[i].index = i;
             strcpy(arrDisease[i].code, disease.code);
 
             free(disease.genes);
@@ -204,5 +215,9 @@ int main(int argc, char *argv[])
 
     fclose(input);
     fclose(output);
+    clock_t end = clock();
+    double elapsed_time = ((double)(end - start)) / CLOCKS_PER_SEC;
+
+    printf("Tempo de execução: %.3f segundos\n", elapsed_time);
     return 0;
 }
