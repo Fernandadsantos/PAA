@@ -27,7 +27,7 @@ void calc_table(int *K, char *P)
     int p_size = strlen(P);
     for (int i = 1, j = -1; i < p_size; i++)
     {
-        while (j >= 0 && P[j + 1] != P[i])
+        while (j >= 1 && P[j + 1] != P[i])
             j = K[j];
 
         if (P[j + 1] == P[i])
@@ -42,43 +42,38 @@ void insert(int *R, int m, int index)
     R[index] = m;
 }
 
-int overwrite_gene(char *str, int n)
-{
+int overwrite_gene(char *str, int n) {
     int len = strlen(str);
-    if (n >= len)
-    {
-        str[0] = '\0';
+    if (n >= len) {
+        str[0] = '\0';  
         return -1;
     }
-
-    memmove(str, str + n, len - n + 1);
+ 
+    for (int i = 0; i < len - n; i++) {
+        str[i] = str[i + n];
+    }
+    str[len - n] = '\0';  
 
     return 1;
 }
 
 void KMP(char *DNA, Disease *disease, int subSize)
 {
-
     for (int d = 0; d < disease->qtdGenes; d++)
     {
-        int m = strlen(DNA), n = strlen(disease->genes[d].gene), index = 0, totalV = 0, parcialV = 0;
-        int R[m];
-        int K[n];
-        memset(K, -1, sizeof(K));
+        int m = strlen(DNA), n = strlen(disease->genes[d].gene), index = 0, parcialV = 0;
+        int *K = malloc(n * sizeof(int));
+        memset(K, 0, n * sizeof(int));
         calc_table(K, disease->genes[d].gene);
 
-        for (int i = 0, j = -1; i < m; i++)
+        for (int i = 0, j = 0; i < m; i++)
         {
-
-            while (j >= 0 && disease->genes[d].gene[j + 1] != DNA[i])
+            while (j >= 1 && disease->genes[d].gene[j + 1] != DNA[i])
             {
                 if (j >= subSize - 1)
                 {
-
-                    insert(R, i - n + 1, index);
                     parcialV += j + 1;
-                    totalV = parcialV;
-                    disease->genes[d].qtd += totalV;
+                    disease->genes[d].qtd += parcialV;
                     parcialV = 0;
                     int go = overwrite_gene(disease->genes[d].gene, j + 1);
                     calc_table(K, disease->genes[d].gene);
@@ -94,7 +89,6 @@ void KMP(char *DNA, Disease *disease, int subSize)
                 }
                 else
                 {
-
                     j = K[j];
                 }
             }
@@ -111,7 +105,6 @@ void KMP(char *DNA, Disease *disease, int subSize)
 
             if (j == m - 1)
             {
-                insert(R, i - m + 1, index);
                 parcialV += j + 1;
                 index++;
                 j = K[j];
@@ -122,8 +115,6 @@ void KMP(char *DNA, Disease *disease, int subSize)
         parcialV = 0;
         disease->genes[d]
             .porcent = (disease->genes[d].qtd * 100) / disease->genes[d].qtdInit;
-
-        totalV = 0;
     }
 }
 
@@ -169,7 +160,7 @@ void sortElements(Disease *D, int n, FILE *output)
 
 int main(int argc, char *argv[])
 {
-    clock_t start = clock();
+     clock_t start = clock();
     // FILE *input = fopen("input.txt", "r");
     // FILE *output = fopen("output.txt", "w");
     FILE *input = fopen(argv[1], "r");
@@ -178,9 +169,7 @@ int main(int argc, char *argv[])
     {
         int subSize = 0, num_disease = 0;
         char DNA[40001];
-        fscanf(input, "%d", &subSize);
-        fscanf(input, "%s", DNA);
-        fscanf(input, "%d", &num_disease);
+        fscanf(input, "%d %s %d", &subSize, DNA, &num_disease);
 
         Disease *arrDisease = malloc(num_disease * sizeof(Disease));
         for (int i = 0; i < num_disease; i++)
@@ -215,7 +204,7 @@ int main(int argc, char *argv[])
 
     fclose(input);
     fclose(output);
-    clock_t end = clock();
+     clock_t end = clock();
     double elapsed_time = ((double)(end - start)) / CLOCKS_PER_SEC;
 
     printf("Tempo de execução: %.3f segundos\n", elapsed_time);
